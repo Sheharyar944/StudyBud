@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
+from django.http import HttpResponseRedirect
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -203,7 +204,7 @@ def deleteMessage(request, pk):
 
     if request.method == "POST":
         message.delete()
-        return redirect("home")
+        return redirect('activities')
 
     context = {"obj": message}
     return render(request, "base/delete.html", context)
@@ -234,5 +235,5 @@ def topicsPage(request):
 
 def activitiesPage(request):
     room_messages = Message.objects.all()
-    context = {}
-    return render(request, "base/activities.html", context)
+    context = {'room_messages': room_messages}
+    return render(request, "base/activity.html", context)
