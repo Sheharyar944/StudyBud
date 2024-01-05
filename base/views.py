@@ -1,3 +1,4 @@
+from unicodedata import name
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import Q
@@ -7,7 +8,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from .models import Room, Topic, Message
-from .forms import RoomForm
+from .forms import RoomForm, UserForm
 
 
 # Create your views here.
@@ -72,14 +73,27 @@ def registerPage(request):
 
 def home(request):
     q = request.GET.get("q") if request.GET.get("q") != None else ""
-    rooms = Room.objects.filter(
-        Q(topic__name__icontains=q)
-        | Q(name__icontains=q)
-        | Q(description__icontains=q)
-        | Q(host__username__icontains=q)
-    )
+
+# improvement
+    exists = Topic.objects.filter(name=q).exists()
+    if exists:
+        rooms = Room.objects.filter(
+            Q(topic__name__exact=q)
+        )
+    else:
+        # improvement
+
+        rooms = Room.objects.filter(
+            Q(topic__name__icontains=q)
+            | Q(name__icontains=q)
+            | Q(description__icontains=q)
+            | Q(host__username__icontains=q)
+        )
+
     room_count = rooms.count()
-    topics = Topic.objects.all()
+    topics = Topic.objects.filter(
+        room__topic_id__isnull=False).distinct()  # improvement
+
     room_messages = Message.objects.filter(Q(room__topic__name__icontains=q))
     context = {
         "rooms": rooms,
@@ -193,3 +207,32 @@ def deleteMessage(request, pk):
 
     context = {"obj": message}
     return render(request, "base/delete.html", context)
+
+
+@login_required(login_url="login")
+def updateUser(request):
+    user = request.user
+    form = UserForm(instance=user)
+
+    if request.method == "POST":
+        form = UserForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            return redirect("user-profile", pk=user.id)
+
+    context = {'form': form}
+    return render(request, "base/update-user.html", context)
+
+
+def topicsPage(request):
+    q = request.GET.get("q") if request.GET.get("q") != None else ""
+    topics = Topic.objects.filter(
+        room__topic_id__isnull=False, name__icontains=q).distinct()
+    context = {'topics': topics}
+    return render(request, "base/topics.html", context)
+
+
+def activitiesPage(request):
+    room_messages = Message.objects.all()
+    context = {}
+    return render(request, "base/activities.html", context)
